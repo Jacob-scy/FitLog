@@ -71,3 +71,6 @@ deploy/certs/
 *.pem
 *.key
 *.crt
+
+# Local backups (created during security/config edits, never commit)
+*.bak
