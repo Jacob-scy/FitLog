@@ -1,6 +1,6 @@
 # CLAUDE.md — FitLog 训练记录应用
 
-> 本项目遵循 [ClaudeCodePj 工作空间开发规范](../docs/architecture.md)、[业务规则](../docs/business-rules.md)、[审查清单](../docs/review.md)。
+> 本项目遵循 [PersonalProjects 工作空间开发规范](../docs/architecture.md)、[业务规则](../docs/business-rules.md)、[审查清单](../docs/review.md)。
 
 ---
 
