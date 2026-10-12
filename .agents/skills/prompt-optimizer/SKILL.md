@@ -90,7 +90,7 @@ description: 专门用于优化后续开发提问的 Prompt 优化 Skill。通�
 # 背景
 - **技术栈**：Express 4.21 + Prisma ORM + MySQL 8.0。
 - **现状**：需要新增一个导出训练记录的 API：`/api/v1/export?format=csv`。数据源自 `WorkoutRecord` 和 `ExerciseSet` 两张表。
-- **关联文件**：[server/src/modules/export/export.routes.js](file:///d:/PersonalProjects/FitLog/server/src/modules/export/export.routes.js)
+- **关联文件**：[server/src/modules/export/export.routes.js](file:///d:/PersonalProjects/projects/FitLog/server/src/modules/export/export.routes.js)
 
 # 关键约束
 1. **防滥用限制**：每个用户（通过 JWT 认证获取的 `userId`）每天限制最多导出 3 次。
