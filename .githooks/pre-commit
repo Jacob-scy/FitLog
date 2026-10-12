@@ -1,0 +1,5 @@
+#!/bin/sh
+# pre-commit hook — 敏感信息扫描 + 文档完整性校验
+# Git for Windows 用 sh 执行本脚本，再调用 python 运行核心逻辑
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+exec python "$SCRIPT_DIR/pre_commit_check.py"
