@@ -42,7 +42,7 @@ cd client && npm install && npm run dev
 cd server && npx prisma migrate dev   # 数据库迁移
 cd server && npm test                 # 运行测试
 cd client && npm run build            # 生产构建
-cd client && npx tsc --noEmit         # 前端类型检查
+cd client && npm run preview          # 预览生产构建
 ```
 
 环境变量：仓库提供 `.env.docker.example` 与 `.env.production.example`，按需复制为 `.env` 后填写。
