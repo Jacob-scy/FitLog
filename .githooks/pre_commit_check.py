@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""pre-commit 核心逻辑：敏感信息扫描 + 文档完整性校验
+"""pre-commit 核心逻辑：敏感信息扫描 + 文档完整性校验 + PowerShell BOM 警告
 由 .githooks/pre-commit (shell) 调用。自包含，不依赖外部脚本。
 """
 import os, sys, re, subprocess
@@ -66,6 +66,47 @@ def scan_staged_file(filepath):
     return issues
 
 
+# === PowerShell BOM 检查（仅警告，不阻止提交）===
+# 背景: PowerShell 5.1 对无 BOM 的 .ps1 按 GBK 解码，UTF-8 中文会被误判为
+# 双字节字符吞掉行尾 0x0A / 引号，导致脚本语法错误。含中文的 .ps1/.psm1
+# 必须保存为 UTF-8 with BOM。
+BOM_CHECK_EXTS = {'.ps1', '.psm1', '.psd1'}
+UTF8_BOM = b'\xef\xbb\xbf'
+BOM_MAX_BYTES = 500_000
+
+
+def check_ps_bom(filepath):
+    """检查暂存的 .ps1/.psm1 是否含中文但缺 UTF-8 BOM。
+
+    返回 (has_bom, has_chinese)；非目标扩展名或读取失败返回 None。
+    读取暂存区原始字节（不用 text 模式，避免解码破坏 BOM 判定）。
+    """
+    ext = os.path.splitext(filepath)[1].lower()
+    if ext not in BOM_CHECK_EXTS:
+        return None
+    try:
+        r = subprocess.run(['git', 'show', f':{filepath}'], capture_output=True)
+        raw = r.stdout
+    except Exception:
+        return None
+    if not raw or len(raw) > BOM_MAX_BYTES:
+        return None
+
+    has_bom = raw.startswith(UTF8_BOM)
+    body = raw[len(UTF8_BOM):] if has_bom else raw
+    text = None
+    for enc in ('utf-8', 'gbk'):
+        try:
+            text = body.decode(enc)
+            break
+        except UnicodeDecodeError:
+            continue
+    if text is None:
+        text = body.decode('utf-8', errors='ignore')
+    has_chinese = any('\u4e00' <= ch <= '\u9fff' for ch in text)
+    return (has_bom, has_chinese)
+
+
 def find_file_recursive(repo_root, names, max_depth=2):
     if isinstance(names, str):
         names = [names]
@@ -107,8 +148,21 @@ def main():
     print(f"[pre-commit] 检查 {repo_name} — {len(staged)} 个暂存文件")
 
     all_issues = []
+    bom_warnings = []
     for f in staged:
         all_issues.extend(scan_staged_file(f))
+        bom_result = check_ps_bom(f)
+        if bom_result:
+            has_bom, has_chinese = bom_result
+            if has_chinese and not has_bom:
+                bom_warnings.append(f)
+
+    if bom_warnings:
+        print(f"\n[pre-commit] ⚠️ BOM 警告（{len(bom_warnings)} 个 PowerShell 文件含中文但无 UTF-8 BOM）:")
+        for w in bom_warnings:
+            print(f"  - {w}")
+        print("  说明: PowerShell 5.1 对无 BOM 的 .ps1 按 GBK 解码，UTF-8 中文会引发乱码/语法错误。")
+        print("  修复: 用 [System.IO.File]::ReadAllBytes 读出后加 BOM 头 (EF BB BF) 再 WriteAllBytes 写回。")
 
     code_exts = {'.py', '.js', '.ts', '.java', '.yml', '.yaml', '.json', '.vue', '.jsx', '.tsx'}
     has_code = any(os.path.splitext(f)[1].lower() in code_exts for f in staged)
