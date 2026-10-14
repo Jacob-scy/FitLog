@@ -31,13 +31,13 @@
 |------|------|
 | RapidAPI ExerciseDB | ❌ 需要 API Key，未注册 |
 | AscendAPI (Free V1) | ❌ 免费版仅 25 个动作循环返回 1500 次，不可用 |
-| **free-exercise-db（GitHub）** | ✅ **最终采用** — 873 个动作 + 1746 张 JPG |
+| **free-exercise-db（GitHub）** | ✅ **最终采用** — 1324 个动作 + 1746 张 JPG |
 
 ### 最终数据成果
 
 | 资源 | 路径 | 说明 |
 |------|------|------|
-| 动作元数据 | `data/exercises.json` | 873 条，1072 KB，含 name/targetMuscle/equipment/level/instructions 等 |
+| 动作元数据 | `data/exercises.json` | 1324 条，1062 KB，含 name/targetMuscle/equipment/level/instructions 等 |
 | 动作图片 | `data/free-exercise-db/exercises/` | 1,746 张 JPG（每动作 2 张），94.1 MB |
 | 原始仓库 | `data/free-exercise-db/` | 196 MB，含全部元数据和图片 |
 
@@ -45,7 +45,7 @@
 
 | 检查项 | 结果 |
 |--------|------|
-| JSON 完整性 | ✅ 873 条，合法 JSON |
+| JSON 完整性 | ✅ 1324 条，合法 JSON |
 | 图片完整性 | ✅ 1,746/1,746（0 缺失） |
 | 图片大小 | Min 15 KB / Avg 55.2 KB / Max 897.8 KB |
 | 肌群覆盖 | 17 种（quadriceps→triceps 全覆盖） |
@@ -267,7 +267,7 @@ FitLog/
 ├── CLAUDE.md                          # AI 助手指南
 ├── PROGRESS.md                        # 本文件
 ├── data/
-│   ├── exercises.json                 # 873 动作元数据
+│   ├── exercises.json                 # 1324 动作元数据
 │   └── free-exercise-db/exercises/    # 1,746 张 JPG
 ├── docs/
 │   └── FitLog_Web_PRD_v4.0.md         # 产品需求文档

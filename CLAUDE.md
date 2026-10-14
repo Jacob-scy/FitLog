@@ -48,6 +48,6 @@ cd FitLog/client && npx tsc --noEmit   # 类型检查
 
 ## 当前状态
 
-- **阶段 0 完成**：数据已下载，873 个动作 + 1746 张 JPG
+- **阶段 0 完成**：数据已下载，1324 个动作 + 1746 张 JPG
 - **下一步**：阶段 1 — 项目骨架 + 数据库 + 认证
 - 数据文件：`data/exercises.json` + `data/free-exercise-db/`
