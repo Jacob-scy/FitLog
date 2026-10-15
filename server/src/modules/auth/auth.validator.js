@@ -1,15 +1,19 @@
 import { z } from 'zod';
 
+// 仅开发环境放行 admin@admin 测试账号（生产环境必须通过 email 格式校验，否则 400）
+const isDevAdminBypass = (v) =>
+  process.env.NODE_ENV !== 'production' && v === 'admin@admin';
+
 export const sendCodeSchema = z.object({
   email: z.string().refine(
-    (v) => v === 'admin@admin' || z.string().email().safeParse(v).success,
+    (v) => isDevAdminBypass(v) || z.string().email().safeParse(v).success,
     'Invalid email address'
   ),
 });
 
 export const loginSchema = z.object({
   email: z.string().refine(
-    (v) => v === 'admin@admin' || z.string().email().safeParse(v).success,
+    (v) => isDevAdminBypass(v) || z.string().email().safeParse(v).success,
     'Invalid email address'
   ),
   code: z.string().length(6, 'Verification code must be 6 digits'),

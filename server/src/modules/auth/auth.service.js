@@ -38,7 +38,8 @@ function generateCode() {
 }
 
 export async function sendVerificationCode(email, clientIp) {
-  if (email === 'admin@admin') {
+  // Dev-only admin bypass: admin@admin 直接返回成功（不发送验证码），生产环境严格禁用
+  if (process.env.NODE_ENV !== 'production' && email === 'admin@admin') {
     return { success: true, mode: 'dev' };
   }
 
@@ -78,8 +79,9 @@ export async function sendVerificationCode(email, clientIp) {
 }
 
 export async function loginWithCode(email, code) {
-  // Dev admin bypass: admin@admin + 1234 always works
-  if (email === 'admin@admin' && code === '123456') {
+  // Dev-only admin bypass: admin@admin + 123456 直接签发 token，生产环境严格禁用
+  // 生产环境下该组合走入正常验证码流程（无验证码记录 → NO_CODE_FOUND）
+  if (process.env.NODE_ENV !== 'production' && email === 'admin@admin' && code === '123456') {
     let user = await prisma.user.findUnique({ where: { email } });
     if (!user) {
       user = await prisma.user.create({ data: { email, nickname: 'Admin' } });
