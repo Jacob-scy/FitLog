@@ -14,7 +14,11 @@ PATTERNS = [
     (r'AKIA[0-9A-Z]{16}', 'AWS Access Key'),
     (r'xox[baprs]-[A-Za-z0-9-]{10,}', 'Slack Token'),
     (r'eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}', 'JWT Token'),
-    (r'(?i)(password|passwd|secret|token|api_key|apikey|private_key|access_key)\s*[:=]\s*["\']?[A-Za-z0-9+/=_\-]{8,}["\']?\s*$', '硬编码凭证（值非环境变量引用）'),
+    # 修复说明（2026-10-15）：原正则 \s*[:=]\s* 的 \s* 可跨行匹配，导致
+    # "DASHSCOPE_API_KEY=" 空占位符把下一行标识符当成"值"误判为硬编码凭证。
+    # 现将赋值符两侧空白限制为同行 [ \t]*（保留 DB_PASSWORD=/JWT_SECRET= 等
+    # 前缀标识符的真实命中，仅排除空值与跨行拼接）。
+    (r'(?i)(password|passwd|secret|token|api_key|apikey|private_key|access_key)[ \t]*[:=][ \t]*["\']?[A-Za-z0-9+/=_\-]{8,}["\']?[ \t]*$', '硬编码凭证（值非环境变量引用）'),
     (r'(?i)jdbc:(mysql|postgresql|mongodb)://[^:\s/]+:[^@\s]+@', '数据库连接串含明文密码'),
 ]
 
