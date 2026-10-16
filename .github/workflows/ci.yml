@@ -1,0 +1,84 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  client:
+    name: Client (React / Vite)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: client
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: client/package-lock.json
+
+      # 前端 14 spec（vitest browser 模式，需真 Chrome + 截图基准）不适合 CI；
+      # 先上构建门禁（tsc -b + vite build）。
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+  server:
+    name: Server (Express / 集成测试)
+    runs-on: ubuntu-latest
+    continue-on-error: true # 初期放行：测试依赖真实 MySQL/Redis，正在改造为可隔离基座
+    defaults:
+      run:
+        working-directory: server
+    services:
+      mysql:
+        image: mysql:8
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: fitlog_test
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+      redis:
+        image: redis:7
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd="redis-cli ping"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: server/package-lock.json
+
+      # 26 个自制脚本中仅 test-phase2-1.js 被 package.json 引用（依赖真库+真监听）。
+      # 本 job 提供 MySQL/Redis 服务容器试跑；改造为 vitest+supertest 可隔离基座后
+      # 去掉 continue-on-error 转硬门禁（阶段 2 事项）。
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Prisma generate
+        run: npx prisma generate
+
+      - name: Integration tests
+        env:
+          DATABASE_URL: mysql://root:root@127.0.0.1:3306/fitlog_test
+          REDIS_URL: redis://127.0.0.1:6379
+          NODE_ENV: test
+        run: npm test
