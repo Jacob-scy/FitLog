@@ -5,7 +5,8 @@
   "scripts": {
     "dev": "nodemon src/index.js",
     "start": "node src/index.js",
-    "test": "node scripts/test-phase2-1.js"
+    "test": "vitest run",
+    "test:legacy": "node scripts/test-phase2-1.js"
   },
   "dependencies": {
     "@prisma/client": "^6.0.0",
@@ -24,6 +25,8 @@
   },
   "devDependencies": {
     "nodemon": "^3.1.4",
-    "prisma": "^6.0.0"
+    "prisma": "^6.0.0",
+    "supertest": "7.3.1",
+    "vitest": "2.1.9"
   }
 }

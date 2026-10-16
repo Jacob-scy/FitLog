@@ -139,7 +139,7 @@ sudo systemctl status fitlog --no-pager -l
 
 echo "[11/11] Performing service health check..."
 sleep 3
-if curl -s http://127.0.0.1:3000/health/ready | grep -q '"status":"ready"'; then
+if curl -s http://127.0.0.1:3001/health/ready | grep -q '"status":"ready"'; then
     echo "SUCCESS: FitLog backend is healthy and ready!"
 else
     echo "WARNING: Backend did not return ready status immediately, check logs with: journalctl -u fitlog -f -n 50"
@@ -148,7 +148,7 @@ fi
 echo ""
 echo "=========================================="
 echo " FitLog Deployment Complete!"
-echo " Local Backend: http://127.0.0.1:3000"
+echo " Local Backend: http://127.0.0.1:3001"
 echo " Local Frontend: $DEPLOY_CLIENT/dist (via Nginx :80)"
 echo " Cloudflare Tunnel: https://fitlog.yourdomain.com"
 echo "=========================================="

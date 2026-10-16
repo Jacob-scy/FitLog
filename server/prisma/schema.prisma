@@ -25,12 +25,17 @@ model User {
   measurements    BodyMeasurement[]
 }
 
+/// token 列自 2026-10-16 起仅存储 Refresh Token 明文的 sha256 十六进制摘要，
+/// 明文只在签发响应与 HttpOnly Cookie 中出现一次。切换前签发的存量明文记录会在
+/// 首次轮换时就地升级为哈希（见 auth.service.js 的 legacyPlaintext 分支）。
+/// rotatedAt 记录首次轮换时刻，用于宽限期复用判定与重放检测（宽限期内复用不刷新）。
 model RefreshToken {
   id          String    @id @default(cuid())
   token       String    @unique @db.VarChar(512)
   userId      String
   expiresAt   DateTime
   revokedAt   DateTime?
+  rotatedAt   DateTime?
   createdAt   DateTime  @default(now())
   user        User      @relation(fields: [userId], references: [id])
 

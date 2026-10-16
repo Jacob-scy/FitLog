@@ -19,7 +19,7 @@
 
 ```
 # 后端
-cd FitLog/server && npm run dev       # 开发服务器 (port 3000)
+cd FitLog/server && npm run dev       # 开发服务器 (port 3001)
 cd FitLog/server && npx prisma migrate dev  # 数据库迁移
 cd FitLog/server && npm test           # 运行测试
 

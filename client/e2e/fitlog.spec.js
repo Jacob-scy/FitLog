@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 
 const BASE_URL = 'http://localhost:5173';
-const API_URL = 'http://localhost:3000/api/v1';
+const API_URL = 'http://localhost:3001/api/v1';
 
 test.describe('Phase 2: Exercise Library', () => {
   test('Exercise list page loads', async ({ page }) => {
@@ -92,7 +92,7 @@ test.describe('Phase 5: PWA & Export', () => {
 
 test.describe('Integration: System Tests', () => {
   test('Media files are served from backend', async ({ page }) => {
-    const resp = await page.request.get('http://localhost:3000/media/exercises/3_4_Sit-Up/0.jpg');
+    const resp = await page.request.get('http://localhost:3001/media/exercises/3_4_Sit-Up/0.jpg');
     expect(resp.ok()).toBeTruthy();
     expect(resp.headers()['content-type']).toContain('image');
   });

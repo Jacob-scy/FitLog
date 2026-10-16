@@ -21,7 +21,7 @@ test.describe.serial('FITLOG AUTH V2: 手机号 + 密码主认证流程 E2E 全�
 
     // 2. 清空 Rate Limit
     try {
-      await request.post('http://localhost:3000/api/v1/auth/test/clear-rate-limit');
+      await request.post('http://localhost:3001/api/v1/auth/test/clear-rate-limit');
     } catch {
       // ignore
     }
@@ -126,7 +126,7 @@ test.describe.serial('FITLOG AUTH V2: 手机号 + 密码主认证流程 E2E 全�
   // ----------------------------------------------------
   test('场景 5: 非法格式手机号被格式校验拦截', async ({ request }) => {
     // 5.1 API 级别严格拦截
-    const res = await request.post('http://localhost:3000/api/v1/auth/register', {
+    const res = await request.post('http://localhost:3001/api/v1/auth/register', {
       data: {
         phone: '123456',
         password: VALID_PASSWORD,
@@ -193,7 +193,7 @@ test.describe.serial('FITLOG AUTH V2: 手机号 + 密码主认证流程 E2E 全�
   test('场景 9: 连续输错密码达到阈值触发限流锁号 (429)', async ({ request }) => {
     const lockPhone = '13800000009';
     // 先注册一个供测试限流的用户
-    await request.post('http://localhost:3000/api/v1/auth/register', {
+    await request.post('http://localhost:3001/api/v1/auth/register', {
       data: {
         phone: lockPhone,
         password: VALID_PASSWORD,
@@ -204,7 +204,7 @@ test.describe.serial('FITLOG AUTH V2: 手机号 + 密码主认证流程 E2E 全�
     let rateLimited = false;
     // 连续尝试 6 次错误密码
     for (let i = 0; i < 6; i++) {
-      const res = await request.post('http://localhost:3000/api/v1/auth/phone-password/login', {
+      const res = await request.post('http://localhost:3001/api/v1/auth/phone-password/login', {
         data: {
           phone: lockPhone,
           password: 'IncorrectPass123',
@@ -221,7 +221,7 @@ test.describe.serial('FITLOG AUTH V2: 手机号 + 密码主认证流程 E2E 全�
     expect(rateLimited).toBe(true);
 
     // 清理限流，避免后续干扰
-    await request.post('http://localhost:3000/api/v1/auth/test/clear-rate-limit');
+    await request.post('http://localhost:3001/api/v1/auth/test/clear-rate-limit');
   });
 
   // ----------------------------------------------------
@@ -229,7 +229,7 @@ test.describe.serial('FITLOG AUTH V2: 手机号 + 密码主认证流程 E2E 全�
   // ----------------------------------------------------
   test('场景 10: Refresh Token 轮转机制正常运行', async ({ request }) => {
     // 1. 登录获取 Cookie
-    const loginRes = await request.post('http://localhost:3000/api/v1/auth/phone-password/login', {
+    const loginRes = await request.post('http://localhost:3001/api/v1/auth/phone-password/login', {
       data: {
         phone: VALID_PHONE,
         password: VALID_PASSWORD,
@@ -238,7 +238,7 @@ test.describe.serial('FITLOG AUTH V2: 手机号 + 密码主认证流程 E2E 全�
     expect(loginRes.status()).toBe(200);
 
     // 2. 调用 /refresh 接口
-    const refreshRes = await request.post('http://localhost:3000/api/v1/auth/refresh');
+    const refreshRes = await request.post('http://localhost:3001/api/v1/auth/refresh');
     expect(refreshRes.status()).toBe(200);
     const refreshData = await refreshRes.json();
     expect(refreshData.data?.accessToken).toBeDefined();
@@ -288,7 +288,7 @@ test.describe.serial('FITLOG AUTH V2: 手机号 + 密码主认证流程 E2E 全�
   // ----------------------------------------------------
   test('场景 13: 无法利用伪造或他人 ID 越权访问资源 (IDOR 防御)', async ({ request }) => {
     // 登录当前用户
-    const loginRes = await request.post('http://localhost:3000/api/v1/auth/phone-password/login', {
+    const loginRes = await request.post('http://localhost:3001/api/v1/auth/phone-password/login', {
       data: {
         phone: VALID_PHONE,
         password: VALID_PASSWORD,
@@ -298,7 +298,7 @@ test.describe.serial('FITLOG AUTH V2: 手机号 + 密码主认证流程 E2E 全�
 
     // 尝试请求伪造/他人资源 (IDOR 越权请求)
     const fakeId = '00000000-0000-0000-0000-000000000000';
-    const idorRes = await request.get(`http://localhost:3000/api/v1/workouts/records/${fakeId}`, {
+    const idorRes = await request.get(`http://localhost:3001/api/v1/workouts/records/${fakeId}`, {
       headers: {
         Authorization: `Bearer ${accessToken}`,
       },
@@ -313,7 +313,7 @@ test.describe.serial('FITLOG AUTH V2: 手机号 + 密码主认证流程 E2E 全�
   test('场景 14: 注册、登录、刷新等所有 API 响应体均不包含 passwordHash', async ({ request }) => {
     const testPhone = '13800000014';
     // 1. 注册 API 检查
-    const regRes = await request.post('http://localhost:3000/api/v1/auth/register', {
+    const regRes = await request.post('http://localhost:3001/api/v1/auth/register', {
       data: {
         phone: testPhone,
         password: VALID_PASSWORD,
@@ -324,7 +324,7 @@ test.describe.serial('FITLOG AUTH V2: 手机号 + 密码主认证流程 E2E 全�
     expect(regText.toLowerCase()).not.toContain('passwordhash');
 
     // 2. 登录 API 检查
-    const loginRes = await request.post('http://localhost:3000/api/v1/auth/phone-password/login', {
+    const loginRes = await request.post('http://localhost:3001/api/v1/auth/phone-password/login', {
       data: {
         phone: testPhone,
         password: VALID_PASSWORD,
@@ -334,7 +334,7 @@ test.describe.serial('FITLOG AUTH V2: 手机号 + 密码主认证流程 E2E 全�
     expect(loginText.toLowerCase()).not.toContain('passwordhash');
 
     // 3. 刷新 API 检查
-    const refreshRes = await request.post('http://localhost:3000/api/v1/auth/refresh');
+    const refreshRes = await request.post('http://localhost:3001/api/v1/auth/refresh');
     const refreshText = await refreshRes.text();
     expect(refreshText.toLowerCase()).not.toContain('passwordhash');
   });

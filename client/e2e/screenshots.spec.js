@@ -2,7 +2,7 @@ import { test } from '@playwright/test';
 import { readFileSync } from 'fs';
 
 const BASE = 'http://localhost:5173';
-const API = 'http://localhost:3000/api/v1';
+const API = 'http://localhost:3001/api/v1';
 
 // Helper: get a valid auth token
 async function login(request) {

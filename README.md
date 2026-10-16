@@ -29,7 +29,7 @@
 ## 本地开发
 
 ```bash
-# 后端（默认 port 3000）
+# 后端（默认 port 3001）
 cd server && npm install && npm run dev
 
 # 前端（默认 port 5173）

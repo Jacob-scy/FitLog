@@ -35,7 +35,7 @@ export default defineConfig({
     {
       command: 'npm run start',
       cwd: path.resolve(__dirname, '../server'),
-      url: 'http://localhost:3000/api/v1/health',
+      url: 'http://localhost:3001/api/v1/health',
       reuseExistingServer: false,
       timeout: 30000,
       env: {

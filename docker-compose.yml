@@ -63,7 +63,7 @@ services:
     restart: always
     environment:
       NODE_ENV: production
-      PORT: 3000
+      PORT: 3001
       DATABASE_URL: ${DATABASE_URL:?DATABASE_URL is required, e.g. mysql://user:pass@mysql:3306/fitlog_prod}
       REDIS_URL: ${REDIS_URL:?REDIS_URL is required, e.g. redis://:pass@redis:6379/0}
       JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:?JWT_ACCESS_SECRET is required}
@@ -83,7 +83,7 @@ services:
     networks:
       - fitlog-network
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3000/health/ready"]
+      test: ["CMD", "curl", "-f", "http://localhost:3001/health/ready"]
       interval: 15s
       timeout: 5s
       retries: 3

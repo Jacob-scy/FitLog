@@ -12,6 +12,20 @@ import {
 import { rateLimiter } from '../../lib/rate-limit/memory-rate-limiter.js';
 import { getSmsProvider } from '../../lib/sms/index.js';
 import { getEmailProvider } from '../../lib/email/index.js';
+import { logger } from '../../lib/logger/logger.js';
+
+// --- Refresh Token 存储与轮换策略 ---
+// 1. 库中只保存 sha256 哈希，明文仅在签发响应/ Cookie 中出现一次；
+// 2. 轮换在单个 Prisma 事务内完成：标记旧记录已轮换 + 写入新记录，任一失败整体回滚；
+// 3. 宽限期内的并发复用放行（不刷新 rotatedAt，窗口始终锚定首次轮换）；
+//    超出宽限期仍被使用说明 token 已泄露，判定重放并失效该用户整条 refresh 链。
+const ROTATION_GRACE_MS = 10 * 1000;
+const ROTATED_RETENTION_MS = 30 * 24 * 60 * 60 * 1000; // 已轮换记录的保留期，到期随轮换事务清理
+
+/** Refresh Token 明文 → 库内存储值（sha256 十六进制） */
+export function hashRefreshToken(tokenValue) {
+  return crypto.createHash('sha256').update(tokenValue).digest('hex');
+}
 
 // --- In-memory verification code store (dev: replaces Redis/email service) ---
 const codeStore = new Map(); // email → { code, expiresAt, attempts }
@@ -92,7 +106,7 @@ export async function loginWithCode(email, code) {
     const decoded = verifyRefreshToken(refreshTokenValue);
     const expiresAt = new Date(decoded.exp * 1000);
     await prisma.refreshToken.create({
-      data: { token: refreshTokenValue, userId: user.id, expiresAt },
+      data: { token: hashRefreshToken(refreshTokenValue), userId: user.id, expiresAt },
     });
     return {
       user: {
@@ -172,7 +186,7 @@ export async function loginWithCode(email, code) {
   // Store refresh token in DB
   await prisma.refreshToken.create({
     data: {
-      token: refreshTokenValue,
+      token: hashRefreshToken(refreshTokenValue),
       userId: user.id,
       expiresAt,
     },
@@ -203,76 +217,129 @@ export async function refreshAccessToken(tokenValue) {
     throw e;
   }
 
-  // Verify token exists in DB and not revoked
-  const stored = await prisma.refreshToken.findUnique({ where: { token: tokenValue } });
-  if (!stored || stored.revokedAt) {
-    // Token revoked — revoke all tokens for safety
-    if (stored) {
-      await prisma.refreshToken.updateMany({
-        where: { userId: stored.userId },
-        data: { revokedAt: new Date() },
-      });
-    }
+  // 库中按哈希查找；未命中时兼容存量明文记录（切换哈希存储前签发的历史 token）
+  const tokenHash = hashRefreshToken(tokenValue);
+  let stored = await prisma.refreshToken.findUnique({ where: { token: tokenHash } });
+  let legacyPlaintext = false;
+  if (!stored && tokenValue.length <= 512) {
+    stored = await prisma.refreshToken.findUnique({ where: { token: tokenValue } });
+    legacyPlaintext = !!stored;
+  }
+
+  if (!stored) {
     const e = new Error('Refresh token has been revoked.');
     e.statusCode = 401;
     e.errorCode = 'TOKEN_REVOKED';
     throw e;
   }
 
-  if (new Date() > stored.expiresAt) {
+  // 重放检测：已轮换过的 token 再次出现
+  if (stored.revokedAt && stored.rotatedAt) {
+    const reuseAgeMs = Date.now() - new Date(stored.rotatedAt).getTime();
+    if (reuseAgeMs > ROTATION_GRACE_MS) {
+      // 超出宽限期仍被使用 → 判定 token 泄露，失效该用户整条 refresh 链
+      await prisma.refreshToken.deleteMany({ where: { userId: stored.userId } });
+      logger.warn('Refresh token 重放检测触发，已失效该用户全部 refresh 记录', {
+        userId: stored.userId,
+        reuseAgeMs,
+      });
+      const e = new Error('Refresh token has been revoked.');
+      e.statusCode = 401;
+      e.errorCode = 'TOKEN_REPLAYED';
+      throw e;
+    }
+    // 宽限期内的并发复用：正常放行，不刷新 rotatedAt（窗口锚定首次轮换，防止被续期）
+    legacyPlaintext = false; // 旧记录保持不动，仅追加新记录
+  } else if (stored.revokedAt) {
+    // 登出 / 手工吊销导致的失效，不视为重放
+    const e = new Error('Refresh token has been revoked.');
+    e.statusCode = 401;
+    e.errorCode = 'TOKEN_REVOKED';
+    throw e;
+  }
+
+  const now = new Date();
+  if (now > stored.expiresAt) {
     const e = new Error('Refresh token has expired.');
     e.statusCode = 401;
     e.errorCode = 'TOKEN_EXPIRED';
     throw e;
   }
 
-  // Revoke old token (rotation)
-  await prisma.refreshToken.update({
-    where: { id: stored.id },
-    data: { revokedAt: new Date() },
+  // 轮换：标记旧记录已轮换 + 写入新记录，整体在一个 Prisma 事务内完成
+  return prisma.$transaction(async (tx) => {
+    if (legacyPlaintext) {
+      // 存量明文记录在本次轮换时就地升级为哈希存储
+      await tx.refreshToken.update({
+        where: { id: stored.id },
+        data: { token: tokenHash, revokedAt: now, rotatedAt: now },
+      });
+    } else if (!stored.revokedAt) {
+      await tx.refreshToken.update({
+        where: { id: stored.id },
+        data: { revokedAt: now, rotatedAt: now },
+      });
+    }
+
+    const user = await tx.user.findUnique({
+      where: { id: payload.sub },
+      select: { id: true, email: true, phone: true, nickname: true, avatarUrl: true },
+    });
+
+    const tokenPayload = {
+      sub: payload.sub,
+      email: user?.email || payload.email,
+      phone: user?.phone || payload.phone,
+    };
+    const newAccessToken = signAccessToken(tokenPayload);
+    const newRefreshTokenValue = signRefreshToken(tokenPayload);
+
+    const decoded = verifyRefreshToken(newRefreshTokenValue);
+    const expiresAt = new Date(decoded.exp * 1000);
+
+    await tx.refreshToken.create({
+      data: {
+        token: hashRefreshToken(newRefreshTokenValue),
+        userId: payload.sub,
+        expiresAt,
+      },
+    });
+
+    // 顺带清理该用户已过期 / 早已轮换的历史记录，避免轮换表无限增长
+    await tx.refreshToken.deleteMany({
+      where: {
+        userId: payload.sub,
+        id: { not: stored.id },
+        OR: [
+          { expiresAt: { lt: now } },
+          { rotatedAt: { lt: new Date(now.getTime() - ROTATED_RETENTION_MS) } },
+        ],
+      },
+    });
+
+    return {
+      user: user || { id: payload.sub, email: payload.email, phone: payload.phone },
+      accessToken: newAccessToken,
+      refreshToken: newRefreshTokenValue,
+      refreshExpiresAt: expiresAt,
+    };
   });
-
-  // Issue new tokens
-  const user = await prisma.user.findUnique({
-    where: { id: payload.sub },
-    select: { id: true, email: true, phone: true, nickname: true, avatarUrl: true },
-  });
-
-  const tokenPayload = {
-    sub: payload.sub,
-    email: user?.email || payload.email,
-    phone: user?.phone || payload.phone,
-  };
-  const newAccessToken = signAccessToken(tokenPayload);
-  const newRefreshTokenValue = signRefreshToken(tokenPayload);
-
-  const decoded = verifyRefreshToken(newRefreshTokenValue);
-  const expiresAt = new Date(decoded.exp * 1000);
-
-  await prisma.refreshToken.create({
-    data: {
-      token: newRefreshTokenValue,
-      userId: payload.sub,
-      expiresAt,
-    },
-  });
-
-  return {
-    user: user || { id: payload.sub, email: payload.email, phone: payload.phone },
-    accessToken: newAccessToken,
-    refreshToken: newRefreshTokenValue,
-    refreshExpiresAt: expiresAt,
-  };
 }
 
 export async function logout(refreshTokenValue) {
   if (!refreshTokenValue) return;
 
-  const stored = await prisma.refreshToken.findUnique({ where: { token: refreshTokenValue } });
+  const tokenHash = hashRefreshToken(refreshTokenValue);
+  let stored = await prisma.refreshToken.findUnique({ where: { token: tokenHash } });
+  if (!stored && refreshTokenValue.length <= 512) {
+    // 兼容存量明文记录
+    stored = await prisma.refreshToken.findUnique({ where: { token: refreshTokenValue } });
+  }
+
   if (stored && !stored.revokedAt) {
     await prisma.refreshToken.update({
       where: { id: stored.id },
-      data: { revokedAt: new Date() },
+      data: { revokedAt: new Date(), token: tokenHash },
     });
   }
 }
@@ -380,7 +447,7 @@ export async function registerWithPhonePassword({ phone, password }) {
 
   await prisma.refreshToken.create({
     data: {
-      token: refreshTokenValue,
+      token: hashRefreshToken(refreshTokenValue),
       userId: user.id,
       expiresAt,
     },
@@ -450,7 +517,7 @@ export async function loginWithPhonePassword({ phone, password }) {
 
   await prisma.refreshToken.create({
     data: {
-      token: refreshTokenValue,
+      token: hashRefreshToken(refreshTokenValue),
       userId: user.id,
       expiresAt,
     },
@@ -521,7 +588,7 @@ export async function loginWithPhone(phone, code) {
 
   await prisma.refreshToken.create({
     data: {
-      token: refreshTokenValue,
+      token: hashRefreshToken(refreshTokenValue),
       userId: user.id,
       expiresAt,
     },

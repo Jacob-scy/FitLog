@@ -77,10 +77,10 @@ FitLog Web 是面向健身爱好者的**响应式 PWA 训练记录工具**。核
 │                  Linux Server                    │
 │  Nginx                                          │
 │  ├── / → /var/www/fitlog/dist/ (前端静态文件)   │
-│  ├── /api/ → localhost:3000 (Express 反代)      │
+│  ├── /api/ → localhost:3001 (Express 反代)      │
 │  └── /media/ → /var/www/media/ (WebP 直出)     │
 │                                                 │
-│  Node.js / Express (port 3000)                  │
+│  Node.js / Express (port 3001)                  │
 │  ├── JWT 鉴权中间件                              │
 │  ├── Rate Limiter (express-rate-limit)          │
 │  └── Prisma ORM → MySQL 8.0                    │

@@ -72,7 +72,7 @@
 | 项目 | 说明 |
 |------|------|
 | 框架 | Express 4.21 + ES Module |
-| 端口 | 3000 |
+| 端口 | 3001 |
 | 认证 | JWT 双 Token (Access 15min 内存 / Refresh 30d HttpOnly Cookie) |
 | 验证 | Zod schema 中间件 |
 | 限流 | express-rate-limit（邮箱维度 + IP 维度） |

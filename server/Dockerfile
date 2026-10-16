@@ -27,7 +27,7 @@ WORKDIR /app
 
 # 生产环境安全标识
 ENV NODE_ENV=production
-ENV PORT=3000
+ENV PORT=3001
 
 # 安装 OpenSSL 与 curl（用于健康检查）
 RUN apk add --no-cache openssl curl
@@ -42,10 +42,10 @@ COPY --from=builder /app/src ./src
 RUN chown -R node:node /app
 USER node
 
-EXPOSE 3000
+EXPOSE 3001
 
 # 集成 Docker 原生探针
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-  CMD curl -f http://localhost:3000/health/live || exit 1
+  CMD curl -f http://localhost:3001/health/live || exit 1
 
 CMD ["node", "src/index.js"]
